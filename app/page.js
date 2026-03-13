@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+'use client';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import React, { useState, useEffect } from 'react';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 /**
  * Trading Dashboard Component
  * Main interface for monitoring and controlling the auto trading bot
  */
-function App() {
+export default function Home() {
   const [tradingState, setTradingState] = useState(null);
   const [signals, setSignals] = useState([]);
   const [trades, setTrades] = useState([]);
@@ -36,14 +37,14 @@ function App() {
   const fetchData = async () => {
     try {
       const [stateRes, signalsRes, tradesRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/state`),
-        axios.get(`${API_BASE_URL}/api/signals?limit=20`),
-        axios.get(`${API_BASE_URL}/api/trades?limit=50`)
+        fetch(`${API_BASE_URL}/api/state`).then(r => r.json()),
+        fetch(`${API_BASE_URL}/api/signals?limit=20`).then(r => r.json()),
+        fetch(`${API_BASE_URL}/api/trades?limit=50`).then(r => r.json())
       ]);
 
-      setTradingState(stateRes.data);
-      setSignals(signalsRes.data);
-      setTrades(tradesRes.data);
+      setTradingState(stateRes);
+      setSignals(signalsRes);
+      setTrades(tradesRes);
       setLoading(false);
     } catch (err) {
       setError('Failed to fetch data. Make sure the backend server is running.');
@@ -54,8 +55,9 @@ function App() {
   const fetchChartData = async (coin) => {
     try {
       const pair = `${coin}_idr`;
-      const res = await axios.get(`${API_BASE_URL}/api/chart/${pair}?timeframe=1h&limit=100`);
-      setChartData(res.data.candles);
+      const res = await fetch(`${API_BASE_URL}/api/chart/${pair}?timeframe=1h&limit=100`);
+      const data = await res.json();
+      setChartData(data.candles || []);
     } catch (err) {
       console.error('Error fetching chart data:', err);
     }
@@ -64,8 +66,9 @@ function App() {
   const fetchIndicators = async (coin) => {
     try {
       const pair = `${coin}_idr`;
-      const res = await axios.get(`${API_BASE_URL}/api/indicators/${pair}`);
-      setIndicators(res.data);
+      const res = await fetch(`${API_BASE_URL}/api/indicators/${pair}`);
+      const data = await res.json();
+      setIndicators(data);
     } catch (err) {
       console.error('Error fetching indicators:', err);
     }
@@ -73,7 +76,7 @@ function App() {
 
   const toggleTrading = async () => {
     try {
-      await axios.post(`${API_BASE_URL}/api/toggle-trading`);
+      await fetch(`${API_BASE_URL}/api/toggle-trading`, { method: 'POST' });
       fetchData();
     } catch (err) {
       setError('Failed to toggle trading');
@@ -84,7 +87,11 @@ function App() {
     if (!newCoin) return;
     
     try {
-      await axios.post(`${API_BASE_URL}/api/add-coin`, { coin: newCoin });
+      await fetch(`${API_BASE_URL}/api/add-coin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coin: newCoin })
+      });
       setNewCoin('');
       fetchData();
     } catch (err) {
@@ -207,19 +214,19 @@ function App() {
                 </span>
               </div>
               <div style={styles.indicatorBox}>
-                <strong>RSI:</strong> {indicators.indicators.rsi?.toFixed(2) || 'N/A'}
+                <strong>RSI:</strong> {indicators.indicators?.rsi?.toFixed(2) || 'N/A'}
               </div>
               <div style={styles.indicatorBox}>
-                <strong>ATR:</strong> {indicators.indicators.atr?.toFixed(2) || 'N/A'}
+                <strong>ATR:</strong> {indicators.indicators?.atr?.toFixed(2) || 'N/A'}
               </div>
               <div style={styles.indicatorBox}>
-                <strong>Support:</strong> {formatCurrency(indicators.indicators.support)}
+                <strong>Support:</strong> {formatCurrency(indicators.indicators?.support || 0)}
               </div>
               <div style={styles.indicatorBox}>
-                <strong>Resistance:</strong> {formatCurrency(indicators.indicators.resistance)}
+                <strong>Resistance:</strong> {formatCurrency(indicators.indicators?.resistance || 0)}
               </div>
               <div style={styles.indicatorBox}>
-                <strong>Volume:</strong> {indicators.indicators.volume.signal}
+                <strong>Volume:</strong> {indicators.indicators?.volume?.signal || 'N/A'}
               </div>
               <div style={styles.indicatorBox}>
                 <strong>Current Price:</strong> {formatCurrency(indicators.currentPrice)}
@@ -255,27 +262,27 @@ function App() {
               <tbody>
                 {signals.slice(0, 10).map((sig, idx) => (
                   <tr key={idx} style={{
-                    backgroundColor: sig.signal.action === 'BUY' ? 'rgba(76, 175, 80, 0.1)' :
-                                   sig.signal.action === 'SELL' ? 'rgba(244, 67, 54, 0.1)' : 'transparent'
+                    backgroundColor: sig.signal?.action === 'BUY' ? 'rgba(76, 175, 80, 0.1)' :
+                                   sig.signal?.action === 'SELL' ? 'rgba(244, 67, 54, 0.1)' : 'transparent'
                   }}>
                     <td>{formatTime(sig.timestamp)}</td>
-                    <td>{sig.pair.toUpperCase()}</td>
+                    <td>{sig.pair?.toUpperCase()}</td>
                     <td>
                       <span style={{
                         padding: '4px 8px',
                         borderRadius: '4px',
-                        backgroundColor: sig.signal.action === 'BUY' ? '#4caf50' :
-                                       sig.signal.action === 'SELL' ? '#f44336' : '#9e9e9e',
+                        backgroundColor: sig.signal?.action === 'BUY' ? '#4caf50' :
+                                       sig.signal?.action === 'SELL' ? '#f44336' : '#9e9e9e',
                         color: 'white',
                         fontSize: '12px'
                       }}>
-                        {sig.signal.action}
+                        {sig.signal?.action}
                       </span>
                     </td>
-                    <td>{(sig.signal.confidence * 100).toFixed(1)}%</td>
+                    <td>{(sig.signal?.confidence * 100 || 0).toFixed(1)}%</td>
                     <td>{sig.h4Trend}</td>
                     <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {sig.signal.reason}
+                      {sig.signal?.reason}
                     </td>
                   </tr>
                 ))}
@@ -303,17 +310,17 @@ function App() {
                 {trades.slice(-10).reverse().map((trade, idx) => (
                   <tr key={idx}>
                     <td>{formatTime(trade.timestamp)}</td>
-                    <td>{trade.pair.toUpperCase()}</td>
+                    <td>{trade.pair?.toUpperCase()}</td>
                     <td>
                       <span style={{
                         color: trade.type === 'buy' ? '#4caf50' : '#f44336',
                         fontWeight: 'bold'
                       }}>
-                        {trade.type.toUpperCase()}
+                        {trade.type?.toUpperCase()}
                       </span>
                     </td>
                     <td>{formatCurrency(trade.price)}</td>
-                    <td>{trade.amount.toFixed(6)}</td>
+                    <td>{trade.amount?.toFixed(6)}</td>
                     <td>{trade.isSimulation ? '🧪 Sim' : '💰 Live'}</td>
                   </tr>
                 ))}
@@ -326,7 +333,7 @@ function App() {
       <footer style={styles.footer}>
         <p>Auto Trading Bot v1.0 | Strategy: Trend Following + Volume Analysis</p>
         <p style={{ fontSize: '12px', color: '#666' }}>
-          Backend: Node.js + Express | Frontend: React | Exchange: Indodax
+          Backend: Node.js + Express | Frontend: Next.js | Exchange: Indodax
         </p>
       </footer>
     </div>
@@ -492,5 +499,3 @@ const styles = {
     borderTop: '1px solid #ddd'
   }
 };
-
-export default App;
